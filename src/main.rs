@@ -1,10 +1,14 @@
-use std::{ fs::{ self, File }, io::Write, path::Path };
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
 
 use prettytable::Row;
+use regex::{NoExpand, Regex};
 use sqlite::State;
-use regex::{ NoExpand, Regex };
 
-use clap::{ Parser, Subcommand };
+use clap::{Parser, Subcommand};
 #[macro_use]
 extern crate prettytable;
 
@@ -37,9 +41,7 @@ enum Commands {
         all: bool,
     },
     /// returns result that include the text
-    Search {
-        text: String,
-    },
+    Search { text: String },
 }
 
 struct Library {
@@ -51,6 +53,10 @@ struct Library {
 
 impl Library {
     fn save(&self) {
+        if self.text.is_empty() {
+            println!("the book's highlight is empty: {}", self.title);
+            return;
+        }
         if self.title.is_empty() {
             panic!("the save to filename is empty");
         }
@@ -63,22 +69,17 @@ impl Library {
         let mut content: Vec<String> = Vec::new();
         let re: Regex = Regex::new(r"\[[\d{1}|\d{2}]\]\s*").unwrap();
 
-        self.text
-            .clone()
-            .into_iter()
-            .for_each(|mut ele| {
-                if !ele.is_empty() {
-                    ele = re.replace_all(&ele, "").to_string();
+        self.text.clone().into_iter().for_each(|mut ele| {
+            if !ele.is_empty() {
+                ele = re.replace_all(&ele, "").to_string();
 
-                    ele.split("\n")
-                        .into_iter()
-                        .for_each(|v| {
-                            if !v.trim().is_empty() {
-                                content.push(format!("\"{}\"", v.replace("\t", "")));
-                            }
-                        });
-                }
-            });
+                ele.split("\n").into_iter().for_each(|v| {
+                    if !v.trim().is_empty() {
+                        content.push(format!("\"{}\"", v.replace("\t", "")));
+                    }
+                });
+            }
+        });
 
         let filename = format!("{}/{}.md", SAVE_DIR, self.title);
 
@@ -93,7 +94,7 @@ impl Library {
 
         file.flush().unwrap();
         // TODO input log to console
-        println!("exported books: [{}]", filename);
+        println!("exported books: {}", filename);
     }
 }
 
@@ -112,7 +113,10 @@ struct Ibook {
 
 impl Ibook {
     fn new() -> Self {
-        Ibook { annotation: get_bk_ae_annotation(), library: get_bk_library() }
+        Ibook {
+            annotation: get_bk_ae_annotation(),
+            library: get_bk_library(),
+        }
     }
 
     fn query_annotation(&self, sql: &str) -> sqlite::Statement<'_> {
@@ -131,8 +135,7 @@ impl Ibook {
     fn get_library_with_text(&self, text: String) -> Vec<Library> {
         let sql = format!(
             "SELECT * FROM ZBKLIBRARYASSET WHERE ZTITLE LIKE '%{}%' OR ZAUTHOR LIKE '%{}%'",
-            text,
-            text
+            text, text
         );
         self.get_library_with_sql(&sql)
     }
@@ -150,8 +153,10 @@ impl Ibook {
     }
 
     fn get_library_with_asset_id(&self, asset_id: &str) -> Option<Library> {
-        let sql =
-            format!("SELECT * FROM ZBKLIBRARYASSET WHERE ZASSETID = '{}' AND ZTITLE != '' LIMIT 1", asset_id);
+        let sql = format!(
+            "SELECT * FROM ZBKLIBRARYASSET WHERE ZASSETID = '{}' AND ZTITLE != '' LIMIT 1",
+            asset_id
+        );
         let mut statement = self.query_library(&sql);
 
         while let Ok(State::Row) = statement.next() {
@@ -162,7 +167,12 @@ impl Ibook {
             let title = statement.read::<String, _>("ZTITLE").unwrap_or_default();
             let author = statement.read::<String, _>("ZAUTHOR").unwrap_or_default();
 
-            return Some(Library { asset_id: asset_id, title: title, author: author, text: text });
+            return Some(Library {
+                asset_id: asset_id,
+                title: title,
+                author: author,
+                text: text,
+            });
         }
         None
     }
@@ -184,19 +194,20 @@ impl Ibook {
 }
 
 fn print_library(libraries: Vec<Library>) {
-    let mut table: Vec<Vec<String>> = vec![
-        vec!["AssetID".to_string(), "Title".to_string(), "Author".to_string(), "Count".to_string()]
-    ];
+    let mut table: Vec<Vec<String>> = vec![vec![
+        "AssetID".to_string(),
+        "Title".to_string(),
+        "Author".to_string(),
+        "Count".to_string(),
+    ]];
 
     libraries.into_iter().for_each(|x| {
-        table.push(
-            vec![
-                x.asset_id,
-                ellipsis_text(x.title),
-                ellipsis_text(x.author),
-                x.text.len().to_string()
-            ]
-        );
+        table.push(vec![
+            x.asset_id,
+            ellipsis_text(x.title),
+            ellipsis_text(x.author),
+            x.text.len().to_string(),
+        ]);
     });
 
     table_print(table)
@@ -258,32 +269,30 @@ fn ibook_cli() {
     }
 
     match &cli.command {
-        Some(commands) =>
-            match commands {
-                Commands::List => {
-                    let libraries = book.get_library();
-                    print_library(libraries)
-                }
-                Commands::Export { asset_id, all } => {
-                    if *all {
-                        book.get_library()
-                            .into_iter()
-                            .for_each(|x| x.save())
-                    } else {
-                        match book.get_library_with_asset_id(asset_id.as_ref().unwrap().as_str()) {
-                            Some(v) => v.save(),
-                            None => {
-                                println!(
-                                    "Don't find highlight of the asset_id[{}]",
-                                    asset_id.clone().unwrap()
-                                )
-                            }
+        Some(commands) => match commands {
+            Commands::List => {
+                let libraries = book.get_library();
+                print_library(libraries)
+            }
+            Commands::Export { asset_id, all } => {
+                if *all {
+                    book.get_library().into_iter().for_each(|x| x.save())
+                } else {
+                    match book.get_library_with_asset_id(asset_id.as_ref().unwrap().as_str()) {
+                        Some(v) => v.save(),
+                        None => {
+                            println!(
+                                "Don't find highlight of the asset_id[{}]",
+                                asset_id.clone().unwrap()
+                            )
                         }
                     }
                 }
-                Commands::Search { text } =>
-                    print_library(book.get_library_with_text(text.to_string())),
             }
+            Commands::Search { text } => {
+                print_library(book.get_library_with_text(text.to_string()))
+            }
+        },
         None => todo!(),
     }
 }
@@ -305,7 +314,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ print_library, Ibook };
+    use crate::{print_library, Ibook};
 
     #[test]
     fn list() {
@@ -317,14 +326,14 @@ mod tests {
     #[test]
     fn search() {
         let book = Ibook::new();
-        let library = book.get_library_with_text(String::from("决策"));
+        let library = book.get_library_with_text(String::from("超越"));
         print_library(library);
     }
 
     #[test]
     fn export() {
         let book = Ibook::new();
-        let libraries = book.get_library_with_text(String::from("决策"));
+        let libraries = book.get_library_with_text(String::from("超越"));
         libraries.into_iter().for_each(|x| x.save())
     }
 
@@ -339,8 +348,6 @@ mod tests {
     #[test]
     fn export_all() {
         let book = Ibook::new();
-        book.get_library()
-            .into_iter()
-            .for_each(|x| x.save());
+        book.get_library().into_iter().for_each(|x| x.save());
     }
 }
