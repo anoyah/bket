@@ -68,14 +68,23 @@ impl Library {
 
         let mut content: Vec<String> = Vec::new();
         let re: Regex = Regex::new(r"\[[\d{1}|\d{2}]\]\s*").unwrap();
+        let reg1 = Regex::new(r"^\(\d*\)$").unwrap();
+        let re_comma = Regex::new(r"^[,|，|。|.|！|!].*?").unwrap();
 
+        // ，这只是因为它们都处于相同的收缩空间之中。”"
         self.text.clone().into_iter().for_each(|mut ele| {
             if !ele.is_empty() {
                 ele = re.replace_all(&ele, "").to_string();
 
                 ele.split("\n").into_iter().for_each(|v| {
                     if !v.trim().is_empty() {
-                        content.push(format!("\"{}\"", v.replace("\t", "")));
+                        let mut str_reg1 = reg1.replace(v, "").to_string();
+                        if str_reg1.trim().is_empty() {
+                            return;
+                        }
+                        str_reg1 = re_comma.replace_all(&str_reg1.trim(), NoExpand("")).to_string();
+
+                        content.push(format!("\"{}\"", str_reg1.trim().replace("\t", "")));
                     }
                 });
             }
@@ -326,7 +335,7 @@ mod tests {
     #[test]
     fn search() {
         let book = Ibook::new();
-        let library = book.get_library_with_text(String::from("超越"));
+        let library = book.get_library_with_text(String::from("从一"));
         print_library(library);
     }
 
@@ -340,7 +349,7 @@ mod tests {
     #[test]
     fn export_with_asset_id() {
         let book = Ibook::new();
-        book.get_library_with_asset_id("的")
+        book.get_library_with_asset_id("1E066462EBBBAC91B95533B1426531B0")
             .into_iter()
             .for_each(|x| x.save());
     }
