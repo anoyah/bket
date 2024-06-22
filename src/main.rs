@@ -17,7 +17,7 @@ static BKLIBRARY: &str =
 static AEANNOTATION: &str =
     "/Library/Containers/com.apple.iBooksX/Data/Documents/AEAnnotation/AEAnnotation_v10312011_1727_local.sqlite";
 
-static SAVE_DIR: &str = "./bket";
+static SAVE_DIR: &str = ".";
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
