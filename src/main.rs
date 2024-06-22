@@ -19,6 +19,8 @@ static AEANNOTATION: &str =
 
 static SAVE_DIR: &str = ".";
 
+static VERSION: &str = "v0.1";
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
@@ -41,7 +43,10 @@ enum Commands {
         all: bool,
     },
     /// returns result that include the text
-    Search { text: String },
+    Search {
+        text: String,
+    },
+    Version,
 }
 
 struct Library {
@@ -82,7 +87,9 @@ impl Library {
                         if str_reg1.trim().is_empty() {
                             return;
                         }
-                        str_reg1 = re_comma.replace_all(&str_reg1.trim(), NoExpand("")).to_string();
+                        str_reg1 = re_comma
+                            .replace_all(&str_reg1.trim(), NoExpand(""))
+                            .to_string();
 
                         content.push(format!("\"{}\"", str_reg1.trim().replace("\t", "")));
                     }
@@ -200,6 +207,9 @@ impl Ibook {
         }
         highlight
     }
+    fn get_version(&self) -> &str {
+        return VERSION;
+    }
 }
 
 fn print_library(libraries: Vec<Library>) {
@@ -301,6 +311,10 @@ fn ibook_cli() {
             Commands::Search { text } => {
                 print_library(book.get_library_with_text(text.to_string()))
             }
+            Commands::Version => {
+                let version = book.get_version();
+                println!("{version}");
+            }
         },
         None => todo!(),
     }
@@ -358,5 +372,12 @@ mod tests {
     fn export_all() {
         let book = Ibook::new();
         book.get_library().into_iter().for_each(|x| x.save());
+    }
+
+    #[test]
+    fn version() {
+        let book = Ibook::new();
+        let version = book.get_version();
+        println!("{version}");
     }
 }
