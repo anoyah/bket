@@ -17,3 +17,6 @@ export AssetID to current path
 
 `bket search [text]`
 returns result that include the text
+
+`bket version`
+show bket's version
