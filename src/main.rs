@@ -67,7 +67,7 @@ impl Library {
         }
 
         if check_filename(self.title.clone()) {
-            // TODO check the file is exist
+            // TODO check the file exist?
             println!("the file({}) is exist", self.title);
         }
 
@@ -76,7 +76,6 @@ impl Library {
         let reg1 = Regex::new(r"^\(\d*\)$").unwrap();
         let re_comma = Regex::new(r"^[,|，|。|.|！|!].*?").unwrap();
 
-        // ，这只是因为它们都处于相同的收缩空间之中。”"
         self.text.clone().into_iter().for_each(|mut ele| {
             if !ele.is_empty() {
                 ele = re.replace_all(&ele, "").to_string();
